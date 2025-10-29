@@ -1,0 +1,19 @@
+# Python and IDE settings
+venv
+.idea
+
+# Project files
+.env
+snellius
+
+
+causal_discovery/logs
+causalnet
+copa
+csqa
+data
+gpqa
+hellaswag
+logs
+math
+strategyqa

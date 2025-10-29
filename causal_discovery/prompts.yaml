@@ -1,0 +1,1015 @@
+initial_construct_causalnet: |
+ **ROLE**:  
+ You are a specialized AI model designed for causal reasoning. Your task is to analyze the given Premise and Hypothesis, extract nodes, identify causal relationships, and generate a causal question.  
+
+ **TASK**:  
+ For each input consisting of a Premise and a Hypothesis, you must:  
+ 1. Decompose the Premise and Hypothesis into nodes.  
+ 2. Identify potential causal relationships (directed edges) within the Premise.  
+ 3. Generate a causal question based on the Hypothesis logic.  
+
+ **METHOD**:  
+ 1) Node Extraction  
+   - Break the Premise and Hypothesis into concise, standalone statements.  
+   - Split compound sentences using conjunctions (and, or, but, however) or causal markers (because, due to, as a result, therefore).  
+   - Assign unique IDs (A, B, C, …).  
+   - Each node must be a clear, independent statement.  
+   - Mark the source of each node as "premise" or "hypothesis".  
+
+ 2) Relationship Identification (Directed Edges)  
+   - Look for causal markers in the Premise (causes, leads to, due to, because, results in, therefore, hence).  
+   - If a clear causal relationship exists, add a directed edge: NodeX → NodeY.  
+   - If the relation is just parallel, contrastive, or background information, leave the nodes unlinked.  
+
+ 3) Causal Question Generation (Core Rules)  
+   Generate the causal question by interpreting the Hypothesis, using **abstract symbols X and Y** instead of specific node IDs:  
+
+   - **Affirmative Causality** (Hypothesis states X causes Y)  
+     → `Is X -> Y?`  
+
+   - **Negative Causality** (Hypothesis states X does not cause Y / no relation / irrelevant)  
+     → `Is NOT X -> Y?`  
+
+   - **Sole Cause** (Hypothesis uses terms like “only, sole, solely, exclusively”)  
+     → `Is X -> Y, excluding other factors?`  
+
+   - **Primary Cause** (Hypothesis uses terms like “main, primary, key, major”)  
+     → `Is X -> Y the primary cause, compared to others?`  
+
+   - **Alternative Cause** (Hypothesis denies X but introduces another cause Z)  
+     → `Is NOT X -> Y, but Z -> Y?`  
+
+   - **Conditional/Possible Cause** (Hypothesis uses might, could, possibly, may, maybe)  
+     → `Could X -> Y?` or `Is it possible that X -> Y?`  
+
+   - **Other / Unclear Types** (Hypothesis is vague, comparative, evaluative, or not directly causal)  
+     → `Does the hypothesis change the validity of X -> Y?`  
+
+
+ -----
+
+ ### **Input Text**
+ 
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ -----
+
+ ### **Output Format:**
+
+ **IMPORTANT:** You must provide your response in the following JSON format enclosed in triple backticks:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ ```json
+ {{
+    "nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents",
+        "role": "X/Y/confounder/mediator/collider/other"
+      }}
+    ],
+    "edges": [
+      {{"from": "source", "to": "target", "type": "directed/undirected"}}
+    ]
+   "causal_question": "Is E -> B?"
+ }}
+ ```
+
+initial_construct_csqa: |
+ **ROLE**:
+ You are a specialized AI model designed to analyze text, extract nodes, and build directed graphs that capture both causal and commonsense relationships.
+
+ **TASK**:
+ From the provided Premise and Hypothesis:
+ - Extract nodes (statements or core concepts).
+ - Identify directed relationships (edges) only when explicitly supported by the text.
+ - Always frame a causal question from Premise → Hypothesis.
+
+ **METHOD**:
+
+ Node Extraction
+ - From the Premise: Identify the main subject or action and convert it into a concise, declarative statement. Label this Node A. This represents the cause or initial condition.
+ - From the Hypothesis: Rewrite the hypothesis as a complete, declarative statement with subject, verb, and object. Replace any pronouns with explicit references from the premise. Label this Node B. This represents the effect, outcome, or answer.
+
+ Relationship Identification (Edges)
+ - Within Premise: Infer directed relationships among concepts mentioned in the premise.
+ - Between Premise and Hypothesis:
+  - Do not automatically connect Node A and Node B.
+  - Only add an edge A → B if the problem statement or context explicitly indicates a causal or logical inference.
+  - If no explicit connection is stated, leave the nodes unconnected.
+
+ **Causal Question**:
+ - Always pose the causal question: "Is A -> B?"
+ - If there is no explicit connection, the edge list remains empty, but the causal question is still asked.
+
+ ### **Input Text**
+ 
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ -----
+
+ ### **Output Format:**
+
+ **IMPORTANT:** You must provide your response in the following JSON format enclosed in triple backticks:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ ```json
+ {{
+    "nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents",
+        "role": "X/Y/confounder/mediator/collider/other"
+      }}
+    ],
+    "edges": [
+      {{"from": "source", "to": "target", "type": "directed/undirected"}}
+    ]
+   "causal_question": "Is E -> B?"
+ }}
+ ```
+
+initial_construct_gpqa: |
+ **ROLE**:
+ You are a scientific reasoning AI. Your task is to transform a given Premise and Hypothesis into a first-layer directed knowledge graph (DAG) that captures the logical and causal flow of the scenario.
+
+ **OBJECTIVE**:
+ 1) Identify key elements (Steps, Facts, Constraints, Hypothesis). Do NOT treat Goals as nodes.
+ 2) Segment the Premise into clauses and detect discourse signals (because, therefore, if/then, based on).
+ 3) Build a flexible DAG:
+   - Include all relevant nodes (especially Steps).
+   - Add only premise-internal edges supported by text or minimal justified extrapolation.
+   - NEVER add edges between any Premise node and the Hypothesis node.
+ 4) Rewrite the Hypothesis:
+   - Do NOT copy verbatim; produce a clear declarative conclusion statement (not a question/fragment).
+   - Prefer SVO; passive is acceptable if clearer.
+   - The rewritten Hypothesis should directly answer the Premise’s question.
+
+ **STRICT RULES**:
+ - No invention: Nodes/edges must be text-grounded with minimal justified extrapolation.
+ - All Steps must appear as nodes; if no relation is stated, do not add one.
+ - Scope guardrails:
+  - “association/contact” ≠ “causal/necessary/sufficient”
+  - “unchanged with temperature” ≠ “mechanism independent of temperature”
+
+ **METHOD**:
+ Step 1 — Analysis
+ - Break Premise into clauses (C1..Cn) with short notes.
+ - Identify discourse signals (entails, condition, supports, contradicts).
+ - List Steps, Facts, Constraints.
+ - Rewrite the Hypothesis as a declarative conclusion statement.
+
+ Step 2 — Node Extraction
+ - Extract nodes for Step(s), Fact(s), Constraint(s), Hypothesis.
+ - Node fields: id, type, label, source ("premise" or "hypothesis").
+
+ Step 3 — Directed Edges (Premise-internal only)
+ - Build only premise-internal edges that are explicitly supported or minimally justified.
+ - Optional labels: entails, condition, causes, explains, supports, associates, constrains, enables, contradicts, follows.
+ - NEVER include edges between any Premise node and H1.
+
+ Step 4 — Causal Question (Direction as Nodes + Edge)
+ - Output a single directed relation **as text** using node ids, e.g., "H1 -> C" or "A -> H1".
+ - **Direction selection rubric:**
+  - Use **H1 -> PremiseNode** when the Hypothesis provides an explanation/evidence for a Premise node (hypothesis explains/supports the premise fact).
+  - Use **PremiseNode -> H1** when the Hypothesis serves as a conclusion/result inferred from Premise nodes.
+ - Put any Goal only here as natural-language context if needed (not as a node).
+
+ ### **Input Text**
+ 
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ -----
+
+ ### **Output Format:**
+
+ **IMPORTANT:** You must provide your response in the following JSON format enclosed in triple backticks:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ ```json
+ {{
+    "nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents",
+        "role": "X/Y/confounder/mediator/collider/other"
+      }}
+    ],
+    "edges": [
+      {{"from": "source", "to": "target", "type": "directed/undirected"}}
+    ]
+   "causal_question": "Is E -> B?"
+ }}
+ ```
+
+initial_construct_math: |
+
+ **ROLE**:
+ You are a specialized AI model designed to analyze mathematical problems presented in text, extract their logical and operational structure, and represent them as a directed graph.
+
+ **TASK**:
+ From the provided Premise and Hypothesis:
+ 1. Extract equations, variables, and key statements into nodes.
+ 2. Identify the logical and operational relationships between nodes.
+ 3. Construct a directed graph showing the problem-solving flow.
+ 4. Compare the calculated result with the hypothesis.
+
+ **METHOD**:
+ 1) Node Extraction
+   - Decompose Premise and Hypothesis into concise statements, equations, or values.
+   - Pay attention to mathematical expressions and keywords (“is,” “equals,” “product of,” “solve for,” etc.).
+   - Assign unique IDs/letters to each node (A, B, C…).
+   - Rewrite nodes as clear standalone statements (e.g., “x + y = 10,” “Total cost = 500”).
+
+ 2) Relationship Identification (Edges)
+   - Identify explicit and implied mathematical relationships.
+   - An edge A → B means A is needed to compute or derive B.
+   - Construct separate graphs:
+     - Premise Graph: only from premise.
+     - Hypothesis Graph: only from hypothesis.
+
+ 3) Cross-Text Mapping
+   - Check if any Hypothesis node matches a Premise node in meaning (equivalence → mark with `=`).
+   - If related but not identical, map with `↔`.
+
+ 4) Final Answer Generation
+   - Using the graph, perform the necessary calculations.
+   - Compare the derived result with the Hypothesis answer.
+   - Output a final statement: confirm or reject the hypothesis.
+
+ -----
+
+ ### **Input Text**
+ 
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ -----
+
+ ### **Output Format:**
+
+ **IMPORTANT:** You must provide your response in the following JSON format enclosed in triple backticks:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ ```json
+ {{
+    "nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents",
+        "role": "X/Y/confounder/mediator/collider/other"
+      }}
+    ],
+    "edges": [
+      {{"from": "source", "to": "target", "type": "directed/undirected"}}
+    ]
+   "causal_question": "Is E -> B?"
+ }}
+ ```
+
+initial_construct_copa: |
+ **ROLE**:
+ You are an AI model that extracts nodes from text and builds causal graphs.
+
+ **TASK**:
+ Given a Premise and Hypothesis:
+ - Extract nodes (concise, standalone statements).
+ - Identify causal edges within the Premise when explicit markers exist.
+ - Decide the causal direction between Premise and Hypothesis.
+ - Always output causal_question in the form "Is A -> B?" or "Is B -> A?".
+
+ **METHOD**:
+
+ 1) Node Extraction
+   - Split text into minimal standalone statements.
+   - Split on conjunctions/causal markers (and, but, because, therefore, etc.).
+   - Do not split simple modifiers (time, place, apposition).
+   - Label nodes with unique IDs (A, B, …) and mark source ("premise"/"hypothesis").
+
+ 2) Edge Identification (within Premise)
+   - Add edges only if explicit causal markers appear (because, leads to, results in, etc.).
+   - Otherwise, leave directed_edges empty.
+
+ 3) Causal Question
+   - If Premise is the cause → "Is A -> B?".
+   - If Hypothesis is the cause → "Is B -> A?".
+   - If unrelated → still "Is A -> B?" with no edges.
+
+ ### **Input Text**
+ 
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ -----
+
+ ### **Output Format:**
+
+ **IMPORTANT:** You must provide your response in the following JSON format enclosed in triple backticks:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ ```json
+ {{
+    "nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents",
+        "role": "X/Y/confounder/mediator/collider/other"
+      }}
+    ],
+    "edges": [
+      {{"from": "source", "to": "target", "type": "directed/undirected"}}
+    ]
+   "causal_question": "Is E -> B?"
+ }}
+ ```
+
+initial_construct_strategyqa: |
+ **ROLE**:
+ You are a specialized AI model designed to analyze text, extract nodes, and build directed graphs that capture both causal and commonsense relationships.
+
+ **TASK**:
+ From the provided Premise and Hypothesis:
+
+ - Break down the text into nodes (concise, standalone statements).
+ - Identify directed relationships (edges) only when explicitly supported by causal markers.
+ - Always frame a causal question from Premise → Hypothesis.
+
+ **METHOD**:
+
+ 1) Node Extraction
+   - Break the Premise and Hypothesis into concise, standalone statements.
+   - Split compound sentences using conjunctions (and, or, but, however) or causal markers (because, due to, as a result, therefore).
+   - Do NOT split modifiers from their head event/entity. 
+     * If a phrase only modifies another statement (location, time, apposition, adjectival/prepositional/relative-clause modifiers) and does not assert an independent proposition, keep it inside the same node.
+     * Independence test: Can the modifier stand as a true/false statement by itself? If no, keep it attached.
+     * Truth-value test: If you drop the modifier, does the core proposition remain a valid statement about the same event/entity? If yes, the dropped part is a modifier → keep attached.
+   - Assign unique IDs (A, B, C, …).
+   - Each node must be a clear, independent statement.
+   - Mark the source of each node as "premise" or "hypothesis".
+
+ 2) Relationship Identification (Directed Edges)
+   - Look for causal markers in the Premise (causes, leads to, due to, because, results in, therefore, hence).
+   - If a clear causal relationship exists, add a directed edge: NodeX → NodeY, with a justification.
+   - If the relation is merely parallel, contrastive, or background information, leave the nodes unlinked.
+
+ 3) Justification
+   - For every edge, provide a concise one-sentence explanation of the logical or causal reason.
+   - If there are no edges, skip this section.
+
+ 4) Causal Question
+   - Always pose the causal question: "Is A -> B?" where A is the first premise node and B is the main hypothesis node.
+   - If no explicit connection exists, the edge list remains empty, but the causal question is still asked.
+
+  ### **Input Text**
+ 
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ -----
+
+ ### **Output Format:**
+
+ **IMPORTANT:** You must provide your response in the following JSON format enclosed in triple backticks:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ ```json
+ {{
+    "nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents",
+        "role": "X/Y/confounder/mediator/collider/other"
+      }}
+    ],
+    "edges": [
+      {{"from": "source", "to": "target", "type": "directed/undirected"}}
+    ]
+   "causal_question": "Is E -> B?"
+ }}
+ ```
+ 
+initial_construct_hellaswag: |
+ **ROLE**:
+ You are an AI model that extracts nodes from text and builds causal graphs.
+
+ **TASK**:
+ Given a Premise and a Hypothesis:
+ - Treat the entire Premise as node A (do NOT split).
+ - Treat the entire Hypothesis as node B (do NOT split).
+ - Identify causal edges within the Premise only if explicit causal markers exist.
+ - Output causal_question as "Is A -> B?" or "Is B -> A?".
+
+ ### **Input Text**
+ 
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ -----
+
+ ### **Output Format:**
+
+ **IMPORTANT:** You must provide your response in the following JSON format enclosed in triple backticks:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ ```json
+ {{
+    "nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents",
+        "role": "X/Y/confounder/mediator/collider/other"
+      }}
+    ],
+    "edges": [
+      {{"from": "source", "to": "target", "type": "directed/undirected"}}
+    ]
+   "causal_question": "Is E -> B?"
+ }}
+ ```
+
+web_search: |
+ **ROLE**:
+ You are a Causal Knowledge Synthesizer. Your task is to augment an incomplete causal graph that represents a reasoning path from a Premise to a Hypothesis. You will use systematic web searches to find real-world evidence of causal connections, thereby transforming the initial graph into a more comprehensive and causally robust Directed Acyclic Graph (DAG) by filling in missing relationships and identifying unobserved factors.
+
+
+ **OBJECTIVE**:
+ The core task is to model the causal pathway from the Premise to the Hypothesis. Using targeted web searches, identify and add missing causal relationships and unobserved confounders to the initial graph. Apply Judea Pearl’s Structural Causal Model (SCM), focusing on three fundamental causal structures, forks (confounders), chains (mediators), and colliders, as they relate to the reasoning path.
+
+
+ **METHOD**:
+ Analyze & Formulate Queries
+   - Review the Premise, Hypothesis, Nodes, and Initial Edges to understand the established relationships and identify gaps in the causal chain, particularly between the premise and hypothesis.
+   - Formulate targeted web search queries for each causal structure, especially from premise to hypothesis:
+     • Forks (Common Causes): For nodes X and Y without a direct link, search for common causes Z.  
+       Example: "causes of [X] and [Y]" or "factors influencing both [X] and [Y]".  
+     • Chains (Mediation): For potential X → Y links, search for mediators M.  
+       Example: "how does [X] lead to [Y]?" or "mediating factors between [X] and [Y]".  
+     • Colliders (Common Effects): For nodes X and Y, search for common outcomes Z.  
+       Example: "effects of both [X] and [Y]" or "common outcomes of [X] and [Y]".  
+
+ -----
+  ### **Output Format**
+  ```json
+  {{
+    "queries": ["query1", "query2", "query3"]
+  }}
+  ```
+  
+ ### **Input Text**
+
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ nodes: {nodes}
+ edges: {edges}
+
+search_results_enhancement: |
+ **ROLE**:
+ You are a Causal Knowledge Synthesizer. Your task is to augment an incomplete causal graph that represents a reasoning path from a Premise to a Hypothesis. You will use systematic web searches to find real-world evidence of causal connections, thereby transforming the initial graph into a more comprehensive and causally robust Directed Acyclic Graph (DAG) by filling in missing relationships and identifying unobserved factors.
+
+
+ **OBJECTIVE**:
+ The core task is to model the causal pathway from the Premise to the Hypothesis. Using targeted web searches, identify and add missing causal relationships and unobserved confounders to the initial graph. Apply Judea Pearl’s Structural Causal Model (SCM), focusing on three fundamental causal structures, forks (confounders), chains (mediators), and colliders, as they relate to the reasoning path.
+
+ **METHOD**:
+ Integrate Web Search Findings
+   - Add new edges to connect previously isolated nodes or extend causal paths.
+   - Justify each edge:
+     • State which structure (fork, chain, collider) is completed.  
+     • Provide concise, evidence-based reasoning from web findings.  
+   - If hidden variables are revealed, create latent confounders (U1, U2, …) with appropriate edges.  
+
+ Construct the Final DAG
+   - Combine Initial Edges with all new edges.  
+   - Ensure the graph is acyclic (no cycles).  
+
+  **CONSTRAINTS**:
+ - Do not create cycles.  
+ - Do not remove any Initial Edges.  
+ - Only use Nodes provided, plus optional latent confounders (U1, U2, …).  
+ - Justifications must be concise and specific.
+
+ ### **Output Format**
+
+ After completing your analysis, provide your final answer in this exact JSON format:
+  THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+ ```json
+  {{
+    "causal_question": "Is X -> Y?",
+    "causal_pair": ["X_variable", "Y_variable"],
+    "X_variable": "cause variable name",
+    "Y_variable": "effect variable name",
+    "used_premise_nodes": ["A","B","C","D","E"],
+    "added_nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents and its role",
+        "role": "confounder/mediator/collider/other"
+      }}
+    ],
+    "added_edges": [
+      {{
+        "from": "source",
+        "to": "target",
+        "type": "directed/undirected",
+        "justification": "reason for adding this edge"
+      }}
+    ],
+    "complete_graph": {{
+      "nodes": [
+        {{
+          "node": "node symbol",
+          "meaning": "sentence/entity that the node represents",
+          "role": "X/Y/confounder/mediator/collider/other"
+        }}
+      ],
+      "edges": [
+        {{"from": "source", "to": "target", "type": "directed/undirected"}}
+      ]
+    }},
+    "path_analysis": {{
+      "path_types": ["Direct","Chain","Fork","Collider"],
+      "path_description": [
+        "X → Y",
+        "X → E → Y",
+        "X ← A → Y"
+      ],
+      "key_intermediate_nodes": ["E"],
+      "confounders": ["A"],
+      "colliders": []
+    }}
+  }}
+  ```
+
+ ### **Input Text**
+
+ Premise:
+ {premise}
+
+ Hypothesis:
+ {hypothesis}
+
+ nodes: {nodes}
+ edges: {edges}
+
+LLM_DAG_complement: |
+  ## ROLE
+  You are a causal inference expert responsible for constructing a complete causal graph structure from the input and identifying the path types between X and Y.
+
+  ## OBJECTIVE
+  - Extract the causal question (X → Y) only as the starting point for later analysis  
+  - Include all nodes provided in the premise  
+  - Focus on understanding CAN X influences Y and WHAT information are needed to connect X and Y.
+  - Construct a complete causal graph (including initial edges and added ones)  
+  - Identify all possible path types between X and Y (there may be multiple paths)
+
+  Note:  
+  Stage 1 only requires outputting **X, Y, the graph structure, and path types**.  
+  Do NOT calculate causal effects or evaluate the validity of the causal relationship.
+
+  ---
+
+  ## INPUT FORMAT
+  Premise: {premise}
+  Hypothesis: {hypothesis}
+  Nodes: {nodes}
+  Initial Edges: {edges} 
+
+  ---
+
+  ## ANALYSIS METHOD
+
+  1. **Causal Question Extraction**  
+    - Identify X (cause variable) and Y (effect variable)  
+    - Output the causal question as `"Is X → Y?"` without verifying its truth  
+
+  2. **Node Augmentation Rules**  
+    - All nodes from the premise must be included in the graph  
+    - When adding intermediate nodes between X and Y, first consider the nodes provided in the premise  
+    - Only when these nodes are insufficient to explain the X–Y relation, add new domain-knowledge nodes, with clear explanation and role (confounder/mediator/collider/other)  
+    - Keep the graph acyclic  
+    - All initial edges must be preserved  
+
+  3. **Path Type Identification**  
+    - Identify all possible paths between X and Y, and classify them as:  
+      - Direct: X → Y  
+      - Chain: X → mediator → Y  
+      - Fork: X ← confounder → Y  
+      - Collider: X → collider ← Y  
+      - No-path: no connection between X and Y  
+    - Multiple path types may coexist  
+    - In `"path_description"`, list the node sequences for each path  
+
+  ---
+    OUTPUT FORMAT
+    {{
+      "causal_question": "Is X -> Y?",
+      "causal_pair": ["X_variable", "Y_variable"],
+      "X_variable": "cause variable name",
+      "Y_variable": "effect variable name",
+      "used_premise_nodes": ["A","B","C","D","E"],
+      "added_nodes": [
+        {{
+          "node": "node symbol",
+          "meaning": "sentence/entity that the node represents and its role",
+          "role": "confounder/mediator/collider/other"
+        }}
+      ],
+      "added_edges": [
+        {{
+          "from": "source",
+          "to": "target",
+          "type": "directed/undirected",
+          "justification": "reason for adding this edge"
+        }}
+      ],
+      "complete_graph": {{
+        "nodes": [
+          {{
+            "node": "node symbol",
+            "meaning": "sentence/entity that the node represents",
+            "role": "X/Y/confounder/mediator/collider/other"
+          }}
+        ],
+        "edges": [
+          {{"from": "source", "to": "target", "type": "directed/undirected"}}
+        ]
+      }},
+      "path_analysis": {{
+        "path_types": ["Direct","Chain","Fork","Collider"],
+        "path_description": [
+          "X → Y",
+          "X → E → Y",
+          "X ← A → Y"
+        ],
+        "key_intermediate_nodes": ["E"],
+        "confounders": ["A"],
+        "colliders": []
+      }}
+    }}
+    ```
+
+undirected_skeleton: |
+ You are a scientist specializing in causal discovery algorithms, particularly the Peter-Clark (PC) algorithm. Your expertise lies in using correlation statements and independence assertions to initialize graphs and compute causal undirected skeletons. In this stage, focus exclusively on analyzing the provided correlation and independence information to accurately construct the underlying undirected graph that represents the relationships among the variables.
+
+ **Task:** Based on the provided Premise and the external knowledge gathered from web search, apply the PC (Peter-Clark) algorithm to identify a causal undirected skeleton. Your task is to integrate the correlations and independence statements from the premise with the new causal links discovered via the web search to build a more complete graph.
+
+ **Key Principles:**
+
+  - Initially, assume all correlated variables are connected.
+  - An edge X--Y should be removed if ANY independence statement shows X and Y are independent (marginally or conditionally).
+  - Keep all edges unless contradicted by an explicit independence statement.
+  - The final skeleton should reflect all independence relationships in the data.
+
+ Your analysis should be thorough but focused on removing edges based on independence statements.
+ **Required Output Format:**
+ After completing your analysis, provide your final answer in this exact JSON format:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+ {{
+  "nodes": [
+     {{"id": "A", "label": "The introduction of a city-wide carpooling initiative.", "source": "premise"}},
+     {{"id": "B", "label": "There was a notable reduction in traffic congestion.", "source": "premise"}},
+     {{"id": "E", "label": "The carpooling initiative was the sole reason for reduced traffic congestion.", "source": "hypothesis"}}
+   ]
+  "undirected_edges": [
+    ["Node1", "Node2"],
+    ["Node2", "Node3"]
+  ]
+ }}
+
+ **Inputs:**
+ Premise: {premise}
+
+v_structures: |
+ You are an expert in causal discovery, specializing in the Peter-Clark (PC) algorithm. With a deep understanding of undirected skeletons and separation sets, your task in this stage is to identify v-structures. Analyze the given undirected skeleton along with the corresponding separation sets to pinpoint the colliders that indicate potential directional causal relationships among the variables.
+
+ **Task:** You are given a causal skeleton (an undirected graph produced by the PC algorithm) and a Premise that contains independence statements. Your job is to perform two distinct steps:
+
+ 1.  **Extraction of Independence Statements:**
+
+  - **Parse the Premise:** Identify and extract all independence statements.
+  - **Representation:** For each statement that indicates that a pair of variables is independent (optionally given a conditioning set), represent it as an entry in a dictionary. Use a key that is a sorted pair of variables (e.g., "A,C") and set its value as a list of the conditioning variables (if any).
+
+ 2.  **Identification of V-Structures (Colliders):**
+
+  - **Candidate Identification:** Systematically consider every triple of nodes (X,Z,Y) from the skeleton where:
+      - There are edges X−−Z and Y−−Z in the skeleton.
+      - There is no direct edge between X and Y (i.e., they are non-adjacent).
+  - **Verification via Separation Test:**
+    For each candidate triple, check the separation (independence) information:
+      - **Valid V-Structure:** Include [X,Z,Y] only if for the pair (X,Y) (as found in the independence statements) the corresponding separation set does not contain Z.
+      - **Systematic Check:** Ensure that every candidate triple is evaluated using the criteria of non-adjacency, common neighbor, and the separation test to avoid false positives (including a Z that appears in the separation set) and false negatives (omitting any valid candidate).
+
+ **Required Output Format:**
+ After completing your analysis, provide your final answer in this exact JSON format:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+ ```json
+ {{
+  "separation_sets": {{
+    "A,C": ["B"],
+    "A,D": [...],
+    ...
+  }},
+  "v_structures": [
+    ["X", "Z", "Y"],
+    ["X2", "Z2", "Y2"],
+    ...
+  ]
+ }}
+ ```
+
+ **Inputs:**
+ Premise: {premise}
+ Casual skeleton:
+
+ {{
+  "nodes": {nodes},
+  "undirected_edges": {edges}
+ }}
+
+meek_rules: |
+ You are an expert in causal inference with deep knowledge of the PC algorithm’s Meek orientation rules. Your task is to convert a given undirected causal skeleton into a partially directed acyclic graph (PDAG) by orienting as many edges as possible while following these rules:
+
+ **Rules and Constraints:**
+
+  - **Cycle Avoidance:** Do not create any directed cycles.
+  - **V-Structure Preservation:** Maintain all given v-structures (i.e., collider configurations).
+  - **Independence Consistency:** Ensure all orientations comply with the provided marginal and conditional independence relationships (see "Premise").
+  - **Edge Pool Restriction:** Only orient edges that exist in the provided causal skeleton.
+  - **Conservative Orientation:** Only assign a direction to an edge if it is uniquely compelled by a v-structure or through propagation via Meek rules. If the orientation is ambiguous (i.e., both directions are equally supported), leave the edge undirected.
+  - **Final PDAG Requirement:** The final PDAG must include exactly the edges provided in the causal skeleton, with no additional orientations beyond what is compelled by the evidence.
+
+ **Decision Flow:**
+
+ 1.  Identify and orient all edges that form the given v-structures.
+ 2.  Apply Meek rules to propagate any forced orientations.
+ 3.  For each remaining edge, determine if its orientation is uniquely dictated by the rules. If not, leave it undirected.
+
+ **Example:**
+ If the edge A–B does not appear in any v-structure and both A → B and B → A would satisfy the constraints, do not orient it; keep it as A–B.
+
+ **Required Output Format:**
+ After completing your analysis, provide your final answer in this exact JSON format:
+ THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+
+ {{
+  "final_graph": {{
+    "directed_edges": [
+      {{
+        "from": "Node1",
+        "to": "Node2"
+      }},
+      {{
+        "from": "Node2",
+        "to": "Node3"
+      }}
+    ],
+    "undirected_edges": [
+      ["Node3", "Node4"],
+      ["Node5", "Node6"]
+    ]
+  }}
+ }}
+
+ **Inputs:**
+ Premise: {premise}
+ (Contains the relevant marginal and conditional independence information.)
+
+ V-Structures: {v_structures}
+ (A list of collider patterns that must be preserved.)
+
+ Casual skeleton:
+
+ {{
+   "nodes": {nodes},
+   "undirected_edges": {edges}
+ }}
+
+hypothesis_evaluation: |
+  You are a specialist in causal discovery algorithms, particularly the Peter-Clark (PC) algorithm, with a proven ability to evaluate complex causal relationships. In this final stage, your task is to assess a specific hypothesis regarding causal relationships between variables. Based on the constructed and oriented graph—derived from correlation statements, independence assertions, v-structures, and the application of Meek rules—determine whether the evidence supports or contradicts the proposed causal hypothesis.
+
+  **Task:** Evaluate whether the given causal hypothesis is supported by the provided causal graph.
+
+  **Context:**
+  You are given a causal graph that represents a Markov equivalence class (a CPDAG) derived from the above premises. This graph includes:
+  - **Directed edges:** These are relationships that are unambiguously oriented.
+  - **Undirected edges:** These represent ambiguous relationships where multiple orientations (across equivalent DAGs) are possible.
+  
+  **IMPORTANT:** When evaluating the hypothesis, consider only those completions (i.e., fully oriented DAGs) that respect the above premises, including the separation sets. Do not allow any edge orientations that would violate these conditional independence statements (for example, avoid orienting the ambiguous edges as A → B and C → B simultaneously if that contradicts A ⊥ C ∣ B).
+  
+  Your task is to determine if the specified hypothesis holds in every valid DAG within this equivalence class. The hypothesis is considered supported (true) only if it is true in all valid completions; if it holds in some but not all, then the answer should be false.
+  
+  **Required Output Format:**
+  Provide your conclusion as a JSON object with a single boolean field:
+  THIS IS JUST AN EXAMPLE. DO NOT COPY IT. CONSTRUCT YOUR ANSWER BASED ON THE INPUT.
+  ```json
+  {{
+    "hypothesis_answer": true/false
+  }}
+  ```
+
+  **Inputs:**
+  Premise: {premise}
+  Provided Graph:
+  ```json
+  {{
+    "nodes": {nodes},
+    "directed_edges": {directed_edges},
+    "undirected_edges": {undirected_edges}
+  }}
+  ```
+  Hypothesis: {hypothesis}
+
+
+kg_search_queries: |
+ **ROLE: **
+ You are a Knowledge Graph Query Generator. Your task is to generate entity pairs for querying a knowledge graph based on the premise, hypothesis, and current causal graph, aiming to find three types of relationships:
+  
+ 1. Mediating entities (intermediate variable from X to Y)
+ 2. Common cause (variable affecting both X and Y)
+ 3. Direct causal relationship (whether X directly causes Y)
+ 
+ **INPUT:**
+ Premise: {premise}
+ Hypothesis: {hypothesis}
+ nodes: {nodes}
+ edges: {edges}
+ 
+ ##OUTPUT FORMAT:## 
+ (list of entity pairs, each pair represents two entities whose relationship needs to be queried):
+ ```json
+ {{"entity_pairs": [["Entity A", "Entity B"], ["Entity C", "Entity D"]]}}
+ ```
+
+kg_search_enhancement: |
+  **ROLE**:
+  You are a Causal Graph Knowledge Enhancer. Your task is to augment the existing causal graph using structured knowledge graph results, which include mediators and common causes between entity pairs. You will integrate these findings to add new nodes, directed edges, and refine the graph structure while maintaining consistency with the original nodes and edges.
+
+  **OBJECTIVE**:
+  - Incorporate mediators (intermediate entities) between existing nodes as new nodes and directed edges (X → Mediator → Y)
+  - Add common causes (entities influencing both X and Y) as new nodes with directed edges (CommonCause → X and CommonCause → Y)
+  - Ensure all new additions are relevant to the premise and hypothesis
+  - Avoid duplicate nodes (by label) or edges (by "from" and "to" IDs)
+
+  **METHOD**:
+  1. Analyze the knowledge graph results to identify valid mediators and common causes
+  2. For each mediator between X and Y:
+     - Create a new node with "source": "kg"
+     - Add directed edges X → Mediator and Mediator → Y
+  3. For each common cause Z of X and Y:
+     - Create a new node with "source": "kg"
+     - Add directed edges Z → X and Z → Y
+  4. Preserve all original nodes and edges
+
+  INPUT FORMAT:
+  nodes:{nodes}
+  edges:{edges}
+  kg_results:{kg_results}
+  
+  ---
+
+  OUTPUT FORMAT
+  {{
+    "causal_question": "Is X -> Y?",
+    "causal_pair": ["X_variable", "Y_variable"],
+    "X_variable": "cause variable name",
+    "Y_variable": "effect variable name",
+    "used_premise_nodes": ["A","B","C","D","E"],
+    "added_nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents and its role",
+        "role": "confounder/mediator/collider/other"
+      }}
+    ],
+    "added_edges": [
+      {{
+        "from": "source",
+        "to": "target",
+        "type": "directed/undirected",
+        "justification": "reason for adding this edge"
+      }}
+    ],
+    "complete_graph": {{
+      "nodes": [
+        {{
+          "node": "node symbol",
+          "meaning": "sentence/entity that the node represents",
+          "role": "X/Y/confounder/mediator/collider/other"
+        }}
+      ],
+      "edges": [
+        {{"from": "source", "to": "target", "type": "directed/undirected"}}
+      ]
+    }},
+    "path_analysis": {{
+      "path_types": ["Direct","Chain","Fork","Collider"],
+      "path_description": [
+        "X → Y",
+        "X → E → Y",
+        "X ← A → Y"
+      ],
+      "key_intermediate_nodes": ["E"],
+      "confounders": ["A"],
+      "colliders": []
+    }}
+  }}
+  ```
+ 
+
+rag_enhancement: |
+ **ROLE:**
+ You are a Causal Graph RAG Enhancer. Your task is to augment the current causal graph using unstructured web context and structured knowledge graph relationships. By integrating real-world evidence from hybrid retrieval results, you will refine the graph to be more comprehensive, accurate, and causally robust—adding missing nodes, completing directed edges, and ensuring alignment with logical causal structures.
+ 
+ **OBJECTIVE:**
+ The core task is to enrich the existing causal graph (including nodes and directed edges) by leveraging two types of retrieval data: web context (for real-world causal evidence) and knowledge graph relations (for structured entity connections). Focus on filling gaps in the causal chain (e.g., unobserved mediators, hidden confounders) while avoiding duplicate nodes or edges, ultimately strengthening the graph’s ability to support hypothesis validation.
+ 
+ **METHOD:**
+ Integrate Retrieval Results & Enhance Graph
+ Extract Causal Relationships from Web Context: Identify explicit or implicit causal claims (e.g., "X causes Y", "X leads to Y through M") from the provided web snippets. Verify the relevance of these claims to the current graph’s nodes and edges.
+ Extract Structured Connections from Knowledge Graph: Parse the knowledge graph relations (e.g., "X → M", "M → Y") to identify mediators, common causes, or direct causal links that complement the current graph.
+ Add New Nodes & Edges:
+  • For valid new entities (not in the current graph), create nodes with "source" labeled as "rag".
+  • For valid new causal connections, create directed edges with "type" labeled as "web" (if derived from web context) or "kg" (if derived from knowledge graph).
+ Avoid Duplication: Check against existing nodes (by label) and edges (by "from" and "to" node IDs) to ensure no redundant additions.
+ --
+  OUTPUT FORMAT
+  {{
+    "causal_question": "Is X -> Y?",
+    "causal_pair": ["X_variable", "Y_variable"],
+    "X_variable": "cause variable name",
+    "Y_variable": "effect variable name",
+    "used_premise_nodes": ["A","B","C","D","E"],
+    "added_nodes": [
+      {{
+        "node": "node symbol",
+        "meaning": "sentence/entity that the node represents and its role",
+        "role": "confounder/mediator/collider/other"
+      }}
+    ],
+    "added_edges": [
+      {{
+        "from": "source",
+        "to": "target",
+        "type": "directed/undirected",
+        "justification": "reason for adding this edge"
+      }}
+    ],
+    "complete_graph": {{
+      "nodes": [
+        {{
+          "node": "node symbol",
+          "meaning": "sentence/entity that the node represents",
+          "role": "X/Y/confounder/mediator/collider/other"
+        }}
+      ],
+      "edges": [
+        {{"from": "source", "to": "target", "type": "directed/undirected"}}
+      ]
+    }},
+    "path_analysis": {{
+      "path_types": ["Direct","Chain","Fork","Collider"],
+      "path_description": [
+        "X → Y",
+        "X → E → Y",
+        "X ← A → Y"
+      ],
+      "key_intermediate_nodes": ["E"],
+      "confounders": ["A"],
+      "colliders": []
+    }}
+  }}
+  ```
+ 
+ **Input Text:**
+ Current Nodes:{current_nodes}
+ Current Edges:{current_edges}
+ Web Context Snippets:{web_contexts}
+ Knowledge Graph Relations:{kg_relations}
