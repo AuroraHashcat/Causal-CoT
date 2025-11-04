@@ -1,121 +1,97 @@
-# Causal Reasoning in Pieces
 
-<img src="https://img.shields.io/badge/NeurIPS-Submission-blue" alt="NeurIPS Submission"></img> <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 39"></img>
+## Causal-CoT: Causal Chain-of-Thought for Validated Reasoning
 
-A modular in-context pipeline for causal discovery using Large Language Models. This project implements a multi-stage approach to causal reasoning that breaks down complex causal discovery tasks into smaller, specialized reasoning steps. The main pipeline implementation is located in the `/causal_discovery` directory, while baseline experiment implementations can be found in the `/causal_discovery_baseline` directory.
+Official implementation of **Causal-CoT**, a framework that integrates causal graph construction, augmentation, and verification into the Chain-of-Thought (CoT) paradigm.  
+Paper: *Causal-CoT: Causal Chain-of-Thought for Validated Reasoning* (under review at ICLR 2026)
 
-## Introduction
+### Overview
 
-Causal discovery is a fundamental challenge in machine learning and statistics that aims to identify cause-effect relationships from observational data. This repository provides a flexible framework that decomposes the causal discovery process into discrete stages, each handled by a specialized LLM prompt. The modular design allows state-of-the-art reasoning models to amplify their reasoning traces, resulting in more accurate and interpretable causal discovery outcomes.
+Standard CoT prompting enables large language models (LLMs) to produce step-by-step reasoning, yet the intermediate rationales are often unfaithful or logically inconsistent. Causal‑CoT addresses this by introducing causal graph–based reasoning:
 
-Our pipeline implements the Peter-Clark (PC) algorithm through a series of specialized language model prompts:
+- **DAG-guided CoT** — construct an initial directed acyclic graph (DAG) from the problem context.  
+- **Reflection & Augmentation** — enrich the DAG by adding plausible mediators or contextual variables.  
+- **Causal Verification** — estimate conditional probabilities via prompting and apply do-calculus to validate causal effects.
 
-1. **Undirected Skeleton Discovery:** Identifying the initial graph structure
-2. **V-Structure Identification:** Determining v-structures patterns
-3. **Meek Rules Application:** Orienting additional edges
-4. **Hypothesis Evaluation:** Testing causal hypotheses against the discovered graph
+<p align="center">
+  <img src="docs/causal_cot_pipeline.png" width="600" alt="Causal-CoT Pipeline"/>
+</p>
 
-## Architecture
+This structured reasoning converts linear CoT chains into verifiable causal graphs, improving both reasoning fidelity and interpretability across mathematics, commonsense, and causal inference tasks.
 
-The architecture of the pipeline is designed to be modular and extensible. Each stage of the causal discovery process is encapsulated in a separate module, allowing for easy updates and improvements. The modules communicate through well-defined interfaces, ensuring that changes in one module do not affect the others. The pipeline interface is designed in a way that can work with any number of modules, whether the problem decomposition requires 2, 3, or more stages. It supports different LLM backends and processing modes such as sequential or batched.
+### Key Features
 
-```mermaid
-classDiagram
-    direction TB
+- **Graph-Structured Reasoning:** Each reasoning trace forms a DAG.  
+- **Integrated do-calculus Verification:** Quantitative validation of causal links.  
+- **Modular Pipeline:** Three-stage workflow (DAG → Augmentation → Verification).  
+- **Benchmark Coverage:** Evaluated on 7 benchmarks (MATH, CausalNet, COPA, CSQA, GPQA, STRATEGYQA, HellaSwag).  
+- **Cross-Model Compatibility:** Works with LLaMA-3, Qwen-2.5, GPT-3.5, Claude-3.5/3.7, DeepSeek-R1, O3-Mini, etc.
 
-    %% Core Pipeline
-    class CausalDiscoveryPipeline
-    class BatchCausalDiscoveryPipeline
-    class ExperimentLogger
+### Installation
 
-    %% Modular Stages (extendable)
-    interface Stage
-    class UndirectedSkeletonStage
-    class VStructuresStage
-    class MeekRulesStage
-    class HypothesisEvaluationStage
-    class MoreStages
-
-    %% Pluggable LLM Backends (swappable)
-    interface BaseLLMClient
-    class OpenAIClient
-    class HuggingFaceClient
-    class DeepSeekClient
-    class MoreClients
-
-    %% Relationships
-    CausalDiscoveryPipeline --> Stage                 : uses 0..*
-    Stage <|-- UndirectedSkeletonStage
-    Stage <|-- VStructuresStage
-    Stage <|-- MeekRulesStage
-    Stage <|-- HypothesisEvaluationStage
-    Stage <|-- MoreStages
-
-    CausalDiscoveryPipeline --> BaseLLMClient        : invokes
-    BaseLLMClient <|-- OpenAIClient
-    BaseLLMClient <|-- HuggingFaceClient
-    BaseLLMClient <|-- DeepSeekClient
-    BaseLLMClient <|-- MoreClients
-
-    BatchCausalDiscoveryPipeline --> CausalDiscoveryPipeline : wraps for batch & retry
-    CausalDiscoveryPipeline --> ExperimentLogger      : logs results
-```
-
-## Installation
-
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/kacperkadziolka/causal-reasoning-in-pieces.gitcd causal-reasoning-in-pieces
-    cd causal-reasoning-in-pieces
-    ```
-   
-2. Install dependencies:
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    pip install -r requirements.txt
-    ```
-
-3. Set up API keys:
-    ```bash
-    echo "OPENAI_API_KEY=your_openai_key" > .env
-    echo "DEEPSEEK_API_KEY=your_deepseek_key" >> .env
-    echo "HF_TOKEN=your_huggingface_token" >> .env
-    ```
-   
-If you want to use huggingface backend, make sure to have pytorch installed. We recommend using python `3.12+`.
-
-## Usage Examples
-
-Run experiments with different backend options and configurations, such as batch size, mode, input file and number of samples to run.
-
-**OpenAI Backend:**
 ```bash
-python causal_discovery/main.py \
-  --backend openai \
-  --mode sequential \
-  --input_file data/test_dataset.csv \
-  --num_experiments 10
+git clone https://github.com/AuroraHashcat/Causal-CoT.git
+cd Causal-CoT
+
+# Create environment and install dependencies
+pip install -r requirements.txt
 ```
 
-**DeepSeek Backend:**
+### Usage Example
+
 ```bash
-python causal_discovery/main.py \
-  --backend deepseek \
-  --mode batched \
-  --batch_size 8 \
-  --input_file data/test_dataset.csv \
-  --num_experiments 20
+# Move into main module directory
+cd causal_cot
+
+# Run a causal reasoning experiment
+python stable_run.py --mode 1 --input-file ../causalnet/causalnet_llama-8b.csv
 ```
 
-## Project Structure
+Arguments:
 
-- `causal_discovery/` - Main package
-  - `llm_client.py `- LLM client implementations
-  - `main.py` - Entry point for the application
-  - `pipeline/` - Pipeline implementation
-    - `pipeline.py` - Core pipeline logic
-    - `stages.py `- Individual pipeline stages
-  - `prompts.yaml` - LLM prompts for each stage
-  - `utils.py` - Utility functions for parsing responses
-  - `experiment_logger.py` - Logging utilities
+- `--mode`: execution mode (e.g., `1` for standard run)  
+- `--input-file`: path to the dataset CSV (e.g., `causalnet_llama-8b.csv`)
+
+Results (plots / logs / graphs) are saved automatically under the output directory.
+
+### Project Structure (excerpt)
+
+```
+Causal-CoT/
+├── causal_cot/                # Core pipeline implementation
+│   ├── stable_run.py
+│   ├── dag_construction.py
+│   ├── augmentation.py
+│   └── verification.py
+├── causalnet/                 # Benchmark datasets
+├── docs/                      # Documentation & figures
+├── requirements.txt
+└── README.md
+```
+
+### Reproduction (selected results)
+
+| Domain     | Dataset     | Baseline CoT (%) | Causal-CoT (%) | Δ (↑)  |
+|------------|-------------:|------------------:|---------------:|-------:|
+| Math       | MATH         | 49.3              | 52.0           | +2.7   |
+| Causal     | CausalNet    | 61.2              | 66.0           | +4.8   |
+| Commonsense| GPQA         | 38.0              | 58.7           | +20.7  |
+
+Causal-CoT consistently improves reasoning fidelity and stability across multiple LLMs while maintaining a favorable accuracy–efficiency trade-off.
+
+### Citation
+
+If you use this work, please cite:
+
+```
+@inproceedings{causalcot2026,
+  title     = {Causal-CoT: Causal Chain-of-Thought for Validated Reasoning},
+  author    = {Anonymous},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026}
+}
+```
+
+### Contributors & License
+
+- Implementation and experiments: AuroraHashcat  
+- License: MIT — see LICENSE for details
